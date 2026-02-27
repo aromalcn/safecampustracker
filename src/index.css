@@ -1,0 +1,236 @@
+:root {
+  /* Dynamic Blue & White Theme */
+  --primary-color: #0056b3; /* Deep Blue */
+  --secondary-color: #e3f2fd; /* Light Blue/White tint */
+  --accent-color: #00a8ff; /* Bright Blue for highlights */
+  --background-color: #ffffff;
+  --surface-color: #f8f9fa; /* Off-white for cards */
+  --text-primary: #1a1a1a;
+  --text-secondary: #5f6368;
+  --success-color: #00c853; /* Success Green */
+  --warning-color: #ffab00; /* Warning Amber */
+  --error-color: #d50000; /* Error Red */
+
+  --border-radius: 12px;
+  --border-radius-lg: 16px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 86, 179, 0.15);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', var(--font-family);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Scrollbar Tweaks */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ccd0d5;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--border-radius);
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+/* Shared Utility Classes */
+.card {
+  background: white;
+  border-radius: var(--border-radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid #e2e8f0;
+}
+
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--border-radius);
+  border: 1px solid #e2e8f0;
+  background: white;
+}
+
+.table-responsive {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0;
+}
+
+.page-subtitle {
+  color: #64748b;
+  margin-top: 4px;
+  font-size: 0.95rem;
+}
+
+/* Responsive Design Utilities */
+@media (max-width: 1024px) {
+  .page-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --font-size-base: 14px;
+  }
+
+  body {
+    font-size: var(--font-size-base);
+  }
+  
+  .container {
+    padding: 1rem !important;
+  }
+
+  .page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+  }
+
+  .flex-col-mobile {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+  
+  .hide-text-mobile span {
+    display: none;
+  }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
+  
+  .full-width-mobile {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  
+  .mt-mobile {
+    margin-top: 1rem !important;
+  }
+
+  /* Table Mobile Card Style Fallback (Optional) */
+  /* For now keeping horizontal scroll as it's better for complex data */
+  .table-container {
+    margin: 0 -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  
+  .login-page-container {
+    flex-direction: column !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    padding-bottom: 2rem;
+  }
+  
+  .login-brand-panel {
+    flex: 0 0 auto !important; 
+    min-height: 180px !important;
+    padding: 3rem 1.5rem 1.5rem !important;
+    padding-top: max(3rem, env(safe-area-inset-top)) !important;
+  }
+  
+  .login-form-panel {
+    flex: 1 1 auto !important;
+    padding: 2rem 1.5rem !important;
+    border-radius: 24px 24px 0 0;
+    margin-top: -24px;
+    z-index: 2;
+    box-shadow: 0 -10px 25px rgba(0,0,0,0.08);
+  }
+  
+  /* Global Mobile Button Fix */
+  button, .btn {
+    padding: 10px 20px !important;
+    font-size: 0.95rem !important;
+    min-height: 44px; /* Better tap target */
+  }
+
+  .mobile-stack {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 1rem !important;
+  }
+  
+  .mobile-stack > div {
+    width: 100% !important;
+    min-width: unset !important;
+  }
+
+  .mobile-full-width-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    margin-top: 0.5rem;
+  }
+
+  /* Modal Mobile Tweaks */
+  .modal-content {
+    width: 95% !important;
+    max-height: 90vh !important;
+    padding: 1.25rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 1.35rem;
+  }
+}
+
