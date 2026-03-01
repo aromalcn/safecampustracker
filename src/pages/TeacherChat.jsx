@@ -44,8 +44,13 @@ const TeacherChat = () => {
                 .from('users')
                 .select('uid, username, role')
                 .eq('role', 'student');
+            
+            const { data: admins } = await supabase
+                .from('users')
+                .select('uid, username, role')
+                .eq('role', 'admin');
 
-            const allContacts = [...(parents || []), ...(students || [])];
+            const allContacts = [...(parents || []), ...(students || []), ...(admins || [])];
 
             // 2. Fetch unread counts and last message timestamps
             const { data: metaData, error: metaError } = await supabase
@@ -202,7 +207,7 @@ const TeacherChat = () => {
                     {/* Sidebar: Contact List */}
                     <div style={{ width: '300px', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ padding: '1.5rem', borderBottom: '1px solid #f3f4f6' }}>
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: '#111827' }}>Parents & Students</h2>
+                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: '#111827' }}>Contacts</h2>
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto' }}>
                         {loading ? (

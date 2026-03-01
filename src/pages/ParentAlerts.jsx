@@ -156,7 +156,7 @@ const AlertCard = ({ alert }) => {
                 {alert.message}
             </p>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ 
                     padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
                     background: alert.type === 'emergency' ? '#fef2f2' : '#eff6ff',
@@ -164,9 +164,26 @@ const AlertCard = ({ alert }) => {
                 }}>
                     {alert.type}
                 </span>
-                {alert.is_active === false && (
-                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700, background: '#f1f5f9', color: '#64748b' }}>
-                        RESOLVED
+
+                {/* Status Badge for Emergency Alerts */}
+                {alert.type === 'emergency' && (
+                    <span style={{ 
+                        padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+                        background: alert.status === 'new' ? '#fee2e2' : alert.status === 'viewed' ? '#dbeafe' : '#f1f5f9',
+                        color: alert.status === 'new' ? '#dc2626' : alert.status === 'viewed' ? '#2563eb' : '#64748b'
+                    }}>
+                        {alert.status || 'NEW'}
+                    </span>
+                )}
+
+                {/* Status Badge for Broadcasts */}
+                {alert.type === 'broadcast' && (
+                    <span style={{ 
+                        padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+                        background: alert.is_active ? '#dcfce7' : '#f1f5f9',
+                        color: alert.is_active ? '#15803d' : '#64748b'
+                    }}>
+                        {alert.is_active ? 'ACTIVE' : 'RESOLVED'}
                     </span>
                 )}
             </div>

@@ -145,11 +145,11 @@ const AdminUsers = () => {
                             padding: '10px 16px',
                             borderRadius: '8px',
                             border: '1px solid #e2e8f0',
-                            fontSize: '0.95rem',
+                            fontSize: '1rem',
                             outline: 'none',
                             background: 'white',
                             cursor: 'pointer',
-                            height: '44px'
+                            height: '52px'
                         }}
                     >
                         <option value="all">All Roles</option>
@@ -168,14 +168,14 @@ const AdminUsers = () => {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{ 
-                                padding: '10px 16px 10px 40px', 
+                                padding: '14px 16px 14px 44px', 
                                 borderRadius: '8px', 
                                 border: '1px solid #e2e8f0', 
-                                fontSize: '0.95rem',
+                                fontSize: '1rem',
                                 width: '100%',
                                 maxWidth: '400px',
                                 outline: 'none',
-                                height: '44px'
+                                height: '52px'
                             }}
                         />
                     </div>

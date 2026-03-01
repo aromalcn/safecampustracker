@@ -310,7 +310,7 @@ const TeacherResults = () => {
                         placeholder="Search by student or subject..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', padding: '10px 10px 10px 40px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                        style={{ width: '100%', padding: '14px 14px 14px 44px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem' }}
                     />
                 </div>
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-config';
-import { AlertTriangle, Trash2, CheckCircle, Plus } from 'lucide-react';
+import { AlertTriangle, Trash2, CheckCircle, Plus, Edit2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import EmergencyMonitor from '../components/EmergencyMonitor';
 
@@ -9,6 +9,13 @@ const AdminAlerts = () => {
     const [alerts, setAlerts] = useState([]);
     const [newAlert, setNewAlert] = useState({ title: '', message: '', severity: 'info' });
     const [loading, setLoading] = useState(true);
+    const [editingId, setEditingId] = useState(null);
+    const [toast, setToast] = useState(null);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
     useEffect(() => {
         fetchAlerts();
@@ -29,17 +36,58 @@ const AdminAlerts = () => {
         e.preventDefault();
         const { data: { user } } = await supabase.auth.getUser();
         
-        const { error } = await supabase
-            .from('safety_alerts')
-            .insert([{ ...newAlert, created_by: user.id }]);
+        if (editingId) {
+            console.log("Updating safety alert:", editingId, newAlert);
+            const { data, error } = await supabase
+                .from('safety_alerts')
+                .update({ ...newAlert })
+                .eq('id', editingId)
+                .select();
 
-        if (error) {
-            alert('Failed to create alert: ' + error.message);
+            if (error) {
+                console.error("Supabase Alert Update Error:", error);
+                showToast('Failed to update: ' + error.message, 'error');
+            } else {
+                if (data && data[0]) {
+                    setAlerts(alerts.map(a => a.id === editingId ? data[0] : a));
+                }
+                setEditingId(null);
+                setNewAlert({ title: '', message: '', severity: 'info' });
+                showToast('Alert updated successfully!');
+            }
         } else {
-            setNewAlert({ title: '', message: '', severity: 'info' });
-            fetchAlerts();
-            alert('Alert broadcasted successfully!');
+            console.log("Broadcasting new safety alert:", newAlert);
+            const { data, error } = await supabase
+                .from('safety_alerts')
+                .insert([{ ...newAlert, created_by: user.id }])
+                .select();
+
+            if (error) {
+                console.error("Supabase Alert Insert Error:", error);
+                showToast('Failed to create: ' + error.message, 'error');
+            } else {
+                if (data && data[0]) {
+                    setAlerts([data[0], ...alerts]);
+                }
+                setNewAlert({ title: '', message: '', severity: 'info' });
+                showToast('Alert broadcasted successfully!');
+            }
         }
+    };
+
+    const handleEdit = (alert) => {
+        setEditingId(alert.id);
+        setNewAlert({
+            title: alert.title,
+            message: alert.message,
+            severity: alert.severity
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setNewAlert({ title: '', message: '', severity: 'info' });
     };
 
     const toggleActive = async (id, currentStatus) => {
@@ -48,8 +96,11 @@ const AdminAlerts = () => {
             .update({ is_active: !currentStatus })
             .eq('id', id);
 
-        if (error) alert('Error updating status');
-        else fetchAlerts();
+        if (error) showToast('Error updating status', 'error');
+        else {
+            showToast(`Alert ${currentStatus ? 'deactivated' : 'activated'} successfully!`);
+            fetchAlerts();
+        }
     };
 
     return (
@@ -69,10 +120,17 @@ const AdminAlerts = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem' }}>
                 {/* Create Form */}
-                <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', height: 'fit-content' }}>
-                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Plus size={20} /> Broadcast New Alert
-                    </h2>
+                <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: editingId ? '2px solid #3b82f6' : '1px solid #e2e8f0', height: 'fit-content' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h2 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {editingId ? <Edit2 size={20} /> : <Plus size={20} />} {editingId ? 'Edit Alert' : 'Broadcast New Alert'}
+                        </h2>
+                        {editingId && (
+                            <button onClick={cancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                <X size={20} />
+                            </button>
+                        )}
+                    </div>
                     <form onSubmit={handleCreateAlert} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
                             <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem', fontWeight: 600 }}>Title</label>
@@ -107,8 +165,8 @@ const AdminAlerts = () => {
                                 <option value="critical">Critical (Red)</option>
                             </select>
                         </div>
-                        <button type="submit" style={{ background: '#dc2626', color: 'white', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', marginTop: '1rem' }}>
-                            Broadcast Alert
+                        <button type="submit" style={{ background: editingId ? '#2563eb' : '#dc2626', color: 'white', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', marginTop: '1rem' }}>
+                            {editingId ? 'Update Alert' : 'Broadcast Alert'}
                         </button>
                     </form>
                 </div>
@@ -161,6 +219,23 @@ const AdminAlerts = () => {
                                        >
                                            {alert.is_active ? 'Deactivate' : 'Activate'}
                                        </button>
+                                       <button 
+                                           onClick={() => handleEdit(alert)}
+                                           style={{ 
+                                               padding: '6px 12px', 
+                                               borderRadius: '6px', 
+                                               border: '1px solid #cbd5e1', 
+                                               background: 'white', 
+                                               cursor: 'pointer',
+                                               fontSize: '0.85rem',
+                                               color: '#334155',
+                                               display: 'flex',
+                                               alignItems: 'center',
+                                               gap: '4px'
+                                           }}
+                                       >
+                                           <Edit2 size={14} /> Edit
+                                       </button>
                                    </div>
                                 </div>
                             ))}
@@ -168,6 +243,34 @@ const AdminAlerts = () => {
                     )}
                 </div>
             </div>
+
+            {/* Notification Toast */}
+            {toast && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
+                    background: toast.type === 'success' ? '#10b981' : '#ef4444',
+                    color: 'white',
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    zIndex: 10000,
+                    animation: 'slideUp 0.3s ease-out'
+                }}>
+                    <X size={20} style={{ cursor: 'pointer' }} onClick={() => setToast(null)} />
+                    <span style={{ fontWeight: 600 }}>{toast.message}</span>
+                    <style>{`
+                        @keyframes slideUp {
+                            from { transform: translateY(100%); opacity: 0; }
+                            to { transform: translateY(0); opacity: 1; }
+                        }
+                    `}</style>
+                </div>
+            )}
         </div>
     );
 };

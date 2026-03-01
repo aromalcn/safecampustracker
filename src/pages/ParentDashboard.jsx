@@ -156,6 +156,13 @@ const ParentDashboard = () => {
                 .select('*', { count: 'exact', head: true })
                 .eq('is_active', true);
             
+            // 3. Fetch active SOS alerts specifically for this student
+            const { count: emergencyCount } = await supabase
+                .from('alerts')
+                .select('*', { count: 'exact', head: true })
+                .eq('sender_id', selectedStudent.uid)
+                .in('status', ['new', 'viewed']);
+            
             const status = attendance?.status;
             let location = 'No Status';
             if (status === 'present' || status === 'late') {
@@ -167,7 +174,7 @@ const ParentDashboard = () => {
             setStats({
                 present: status === 'present' || status === 'late',
                 location: location,
-                alerts: safetyCount || 0
+                alerts: (safetyCount || 0) + (emergencyCount || 0)
             });
         };
 

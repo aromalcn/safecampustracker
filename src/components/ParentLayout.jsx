@@ -4,6 +4,7 @@ import { LayoutDashboard, MapPin, Bell, LogOut, MessageSquare, User, Trophy } fr
 import { logoutUser } from '../services/auth-service';
 import './Layout.css';
 import ParentMobileNav from './ParentMobileNav';
+import NotificationBell from './NotificationBell';
 
 const ParentSidebar = () => {
     const navigate = useNavigate();
@@ -88,7 +89,7 @@ const Header = () => {
     return (
         <header className="top-header">
             <div className="header-actions">
-                 {/* Parent Header implementation if needed, otherwise empty or generic */}
+                <NotificationBell />
                  <div className="user-profile">
                     <div className="avatar" style={{ background: '#004e92', color: 'white' }}>P</div>
                     <span className="role-badge">Parent</span>

@@ -82,6 +82,16 @@ const ParentChat = () => {
                 if (allTeachers) foundTeachers = allTeachers;
             }
 
+            // 3. Fetch Admins
+            const { data: admins } = await supabase
+                .from('users')
+                .select('uid, username, department, role')
+                .eq('role', 'admin');
+            
+            if (admins) {
+                foundTeachers = [...foundTeachers, ...admins];
+            }
+
             // 2. Fetch Metadata
             const { data: metaData, error: metaError } = await supabase
                 .from('messages')
@@ -235,7 +245,7 @@ const ParentChat = () => {
                 {/* Sidebar: Teacher List */}
                 <div style={{ width: '300px', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ padding: '1.5rem', borderBottom: '1px solid #f3f4f6' }}>
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: '#111827' }}>Teachers</h2>
+                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: '#111827' }}>Contacts</h2>
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto' }}>
                         {loading ? (
