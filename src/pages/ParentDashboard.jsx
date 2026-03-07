@@ -131,54 +131,65 @@ const ParentDashboard = () => {
         }
     };
 
+    const fetchStudentData = async () => {
+        if (!selectedStudent) return;
+        // Fetch today's attendance
+        const today = new Date().toISOString().split('T')[0];
+        const { data: attendance } = await supabase
+            .from('attendance')
+            .select('status')
+            .eq('student_id', selectedStudent.uid)
+            .eq('date', today)
+            .single();
+
+        // 2. Fetch active broadcast alerts
+        const { count: safetyCount } = await supabase
+            .from('safety_alerts')
+            .select('*', { count: 'exact', head: true })
+            .eq('is_active', true);
+        
+        // 3. Fetch active SOS alerts specifically for this student
+        const { count: emergencyCount } = await supabase
+            .from('alerts')
+            .select('*', { count: 'exact', head: true })
+            .eq('sender_id', selectedStudent.uid)
+            .in('status', ['new', 'viewed']);
+        
+        const status = attendance?.status;
+        let location = 'No Status';
+        if (status === 'present' || status === 'late') {
+            location = 'On Campus';
+        } else if (status === 'absent') {
+            location = 'Off Campus';
+        }
+
+        setStats({
+            present: status === 'present' || status === 'late',
+            location: location,
+            alerts: (safetyCount || 0) + (emergencyCount || 0)
+        });
+    };
+
     useEffect(() => {
+        fetchStudentData();
+
         if (!selectedStudent) return;
 
-        const fetchStudentData = async () => {
-            // Fetch today's attendance
-            const today = new Date().toISOString().split('T')[0];
-            const { data: attendance } = await supabase
-                .from('attendance')
-                .select('status')
-                .eq('student_id', selectedStudent.uid)
-                .eq('date', today)
-                .single();
+        // Attendance Subscription for this student
+        const subscription = supabase
+            .channel(`parent_attendance_${selectedStudent.uid}`)
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'attendance', filter: `student_id=eq.${selectedStudent.uid}` }, 
+                () => {
+                    console.log('Student attendance updated, refreshing parent view...');
+                    fetchStudentData();
+                }
+            )
+            .subscribe();
 
-            // Fetch active alerts
-            // Assuming alerts might be linked to student or generic. 
-            // For now, let's fetch global alerts or alerts specifically for this student if that column existed.
-            // The alerts table has 'sender_id', but not 'target_student_id'. 
-            // We'll leave alerts as 0 or mock for now unless we add a specific query.
-            
-            // 2. Fetch active broadcast alerts
-            const { count: safetyCount } = await supabase
-                .from('safety_alerts')
-                .select('*', { count: 'exact', head: true })
-                .eq('is_active', true);
-            
-            // 3. Fetch active SOS alerts specifically for this student
-            const { count: emergencyCount } = await supabase
-                .from('alerts')
-                .select('*', { count: 'exact', head: true })
-                .eq('sender_id', selectedStudent.uid)
-                .in('status', ['new', 'viewed']);
-            
-            const status = attendance?.status;
-            let location = 'No Status';
-            if (status === 'present' || status === 'late') {
-                location = 'On Campus';
-            } else if (status === 'absent') {
-                location = 'Off Campus';
-            }
-
-            setStats({
-                present: status === 'present' || status === 'late',
-                location: location,
-                alerts: (safetyCount || 0) + (emergencyCount || 0)
-            });
+        return () => {
+            supabase.removeChannel(subscription);
         };
-
-        fetchStudentData();
     }, [selectedStudent]);
 
     const handleLogout = async () => {

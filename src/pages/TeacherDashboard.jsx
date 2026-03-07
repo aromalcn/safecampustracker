@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Users, CheckSquare, AlertTriangle, FileText, Bell, X, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../services/auth-service';
-import { getTeacherStats, createAlert, markAttendance, getTeacherAlerts } from '../services/dashboard-service';
+import { getTeacherStats, processAutoAbsentees, createAlert, markAttendance, getTeacherAlerts } from '../services/dashboard-service';
 import { supabase } from '../supabase-config';
 import MobileNav from '../components/MobileNav';
 import AlertBanner from '../components/AlertBanner'; // [NEW]
@@ -50,6 +50,9 @@ const TeacherDashboard = () => {
 
             setUser(currentUser);
             loadStats();
+            
+            // Auto-mark past unmarked attendance as absent
+            processAutoAbsentees();
         };
         init();
     }, [navigate]);
@@ -86,12 +89,32 @@ const TeacherDashboard = () => {
         };
     }, [activeSafetyAlert]);
 
-    const loadStats = async () => {
-        setLoading(true);
+    const loadStats = async (isBackground = false) => {
+        if (!isBackground) setLoading(true);
         const data = await getTeacherStats();
         setStats(data);
-        setLoading(false);
+        if (!isBackground) setLoading(false);
     };
+
+    // Real-time Attendance Subscription
+    useEffect(() => {
+        const subscription = supabase
+            .channel('teacher_attendance_updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, (payload) => {
+                console.log('🔔 Real-time Attendance Event:', payload.eventType, payload.new);
+                loadStats(true); // Background refresh
+            })
+            .subscribe((status) => {
+                console.log('📡 Teacher Attendance Subscription Status:', status);
+                if (status === 'CHANNEL_ERROR') {
+                    console.error('❌ Realtime subscription failed. Ensure Realtime is enabled for the "attendance" table in Supabase.');
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, []);
 
     return (
         <div style={{ minHeight: '100vh', background: '#fafafa', fontFamily: 'var(--font-family)', paddingBottom: '80px' }}>

@@ -34,6 +34,21 @@ const AdminAttendance = () => {
         fetchDailyOverview();
     }, [selectedDate]);
 
+    // Real-time Attendance Subscription
+    useEffect(() => {
+        const subscription = supabase
+            .channel('admin_daily_attendance')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
+                console.log('Attendance updated, refreshing daily overview...');
+                fetchDailyOverview();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, [selectedDate]); // Refresh if date changes (though supabase channel stays same, the fetch uses selectedDate)
+
     // Fetch Schedule and Attendance for the selected date
     const fetchDailyOverview = async () => {
         setLoading(true);
@@ -58,16 +73,14 @@ const AdminAttendance = () => {
 
             if (attendanceError) throw attendanceError;
 
-            // 3. Merge Data
-            // We want to show ALL scheduled classes, and attach attendance counts to them.
-            // If a class corresponds to a timetable entry, we match by `class_id` (record.class_id === timetable.id)
-            
+            // 3. Merge Data with robustness
             const merged = (timetableData || []).map(schedule => {
+                const scheduleId = String(schedule.id);
                 // Find all attendance records for this specific class schedule
-                const classRecords = (attendanceData || []).filter(r => r.class_id == schedule.id);
+                const classRecords = (attendanceData || []).filter(r => String(r.class_id) === scheduleId);
                 
-                const presentCount = classRecords.filter(r => r.status === 'present').length;
-                const absentCount = classRecords.filter(r => r.status === 'absent').length;
+                const presentCount = classRecords.filter(r => ['present', 'late'].includes(String(r.status || '').toLowerCase())).length;
+                const absentCount = classRecords.filter(r => String(r.status || '').toLowerCase() === 'absent').length;
                 const totalMarked = classRecords.length;
 
                 return {
@@ -81,6 +94,7 @@ const AdminAttendance = () => {
                 };
             });
 
+            console.log(`🤖 Admin Overview Refreshed: ${merged.length} classes, ${attendanceData?.length || 0} attendance records.`);
             setClasses(merged);
 
             // 4. Update Filter Options based on fetched data

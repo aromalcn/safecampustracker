@@ -16,6 +16,7 @@ const TeacherStudents = () => {
     
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
+    const [user, setUser] = useState(null);
     const [selectedSemester, setSelectedSemester] = useState('All');
     const [semesters, setSemesters] = useState([]);
 
@@ -27,16 +28,34 @@ const TeacherStudents = () => {
 
     useEffect(() => {
         const init = async () => {
-            const user = await getCurrentUser();
-            if (!user) {
+            const currentUser = await getCurrentUser();
+            if (!currentUser) {
                 navigate('/login');
                 return;
             }
-            await fetchMyStudents(user);
+            setUser(currentUser);
+            await fetchMyStudents(currentUser);
             setLoading(false);
         };
         init();
     }, [navigate]);
+
+    // Real-time Attendance Subscription
+    useEffect(() => {
+        if (!user) return;
+
+        const subscription = supabase
+            .channel('teacher_students_attendance')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
+                console.log('Attendance changed, refreshing student status...');
+                fetchMyStudents(user);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, [user]);
 
     useEffect(() => {
         filterStudents();
@@ -114,11 +133,11 @@ const TeacherStudents = () => {
 
                     let status = 'No Class';
                     if (currentClass) {
-                        // Check if marked present for THIS class
+                        // Check if marked present or late for THIS class
                         const record = attendanceRecords?.find(a => 
                             a.student_id === student.uid && 
                             a.class_id === currentClass.id &&
-                            a.status === 'present'
+                            (a.status?.toLowerCase() === 'present' || a.status?.toLowerCase() === 'late')
                         );
                         status = record ? 'Inside' : 'Outside';
                     }

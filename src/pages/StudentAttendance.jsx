@@ -29,8 +29,27 @@ const StudentAttendance = () => {
             fetchHistory(currentUser.id);
         };
         init();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [navigate]);
+
+    // Real-time Attendance Subscription
+    useEffect(() => {
+        if (!user) return;
+
+        const subscription = supabase
+            .channel(`student_attendance_history_${user.id}`)
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'attendance', filter: `student_id=eq.${user.id}` }, 
+                () => {
+                    console.log('Attendance record changed, refreshing history...');
+                    fetchHistory(user.id);
+                }
+            )
+            .subscribe();
+
+        return () => {
+             supabase.removeChannel(subscription);
+        };
+    }, [user]);
 
     const fetchHistory = async (userId) => {
         try {

@@ -46,14 +46,31 @@ const AdminDashboard = () => {
         init();
     }, [navigate]);
 
-    const fetchDashboardData = async () => {
+    // Real-time Attendance Subscription
+    useEffect(() => {
+        const subscription = supabase
+            .channel('admin_attendance_updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, (payload) => {
+                console.log('🔔 Admin: Real-time Attendance Event:', payload.eventType);
+                fetchDashboardData(true); // Background refresh
+            })
+            .subscribe((status) => {
+                console.log('📡 Admin Attendance Subscription Status:', status);
+            });
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, []);
+
+    const fetchDashboardData = async (isBackground = false) => {
+        if (!isBackground) setLoading(true);
         try {
-            // Fetch Stats
+            // 1. Fetch Stats
             const data = await getAdminStats();
             setStats(data);
-
-            // Fetch Activities (Mock or Real)
-            // For now, let's fetch recent alerts as activity
+            
+            // 2. Fetch Recent Alerts for Activities
             const { data: recentAlerts } = await supabase
                 .from('alerts')
                 .select('title, created_at')
@@ -62,13 +79,15 @@ const AdminDashboard = () => {
 
             if (recentAlerts) {
                 setActivities(recentAlerts.map(a => ({
-                    id: a.created_at, // simple unique key
+                    id: a.created_at,
                     text: `Alert: ${a.title}`,
                     time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 })));
             }
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
+        } finally {
+            if (!isBackground) setLoading(false);
         }
     };
 

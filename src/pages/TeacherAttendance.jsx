@@ -8,6 +8,8 @@ import CustomDropdown from '../components/CustomDropdown';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+import { cleanupUnmarkedForDate } from '../services/dashboard-service';
+
 const TeacherAttendance = () => {
     const navigate = useNavigate();
     
@@ -58,10 +60,30 @@ const TeacherAttendance = () => {
         if (teacher) fetchDailyOverview();
     }, [teacher, selectedDate]);
 
+    // Real-time Attendance Subscription
+    useEffect(() => {
+        if (!teacher) return;
+
+        const subscription = supabase
+            .channel('teacher_daily_attendance')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, (payload) => {
+                console.log(`🤖 Attendance change detected (${payload.eventType}), refreshing overview...`);
+                fetchDailyOverview();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, [teacher, selectedDate]);
+
     // Fetch Schedule and Attendance
     const fetchDailyOverview = async () => {
         setLoading(true);
         try {
+            // Trigger background cleanup for the selected date
+            cleanupUnmarkedForDate(selectedDate);
+
             // Fix timezone issue
             const [year, month, day] = selectedDate.split('-').map(Number);
             const localDate = new Date(year, month - 1, day);
@@ -85,10 +107,13 @@ const TeacherAttendance = () => {
 
             if (attendanceError) throw attendanceError;
 
-            // 3. Merge Data
+            // 3. Merge Data with robustness
             const merged = (timetableData || []).map(schedule => {
-                const classRecords = (attendanceData || []).filter(r => r.class_id == schedule.id);
-                const presentCount = classRecords.filter(r => r.status === 'Present' || r.status === 'present').length; // Handle case variants
+                const scheduleId = String(schedule.id);
+                const classRecords = (attendanceData || []).filter(r => String(r.class_id) === scheduleId);
+                const presentCount = classRecords.filter(r => 
+                    ['present', 'late'].includes(String(r.status || '').toLowerCase())
+                ).length; 
                 const totalMarked = classRecords.length;
 
                 return {
@@ -101,6 +126,7 @@ const TeacherAttendance = () => {
                 };
             });
 
+            console.log(`🤖 Overview Refreshed: ${merged.length} classes, ${attendanceData?.length || 0} attendance records.`);
             setClasses(merged);
 
             // 4. Update Filter Options

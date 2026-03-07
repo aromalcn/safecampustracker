@@ -40,7 +40,10 @@ const StudentDashboard = () => {
                 return now >= start && now <= end;
             });
 
-            if (!currentClass || !locationMap[currentClass.details] || !navigator.geolocation) {
+            const roomName = (currentClass.details || "").toLowerCase();
+            const locationConfig = locationMap[roomName];
+
+            if (!currentClass || !locationConfig || !navigator.geolocation) {
                 setIsInClass(null);
                 return;
             }
@@ -48,7 +51,6 @@ const StudentDashboard = () => {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const { latitude, longitude, altitude } = pos.coords;
-                    const locationConfig = locationMap[currentClass.details];
                     
                     const isInside = checkInsideBounds(
                         latitude, 
@@ -59,9 +61,11 @@ const StudentDashboard = () => {
                         locationConfig.height
                     );
 
-                    // Optional: Add altitude check here too for accuracy, or just keep it simple for the UI
-                    // For UI indicator, simple lat/lng check is often enough to show "You are near/in class"
-                    setIsInClass(isInside);
+                    // Add altitude check for the indicator too
+                    const roomAltitude = locationConfig.altitude || 0;
+                    const isAltitudeValid = altitude === null || ((altitude >= roomAltitude - 15) && (altitude <= roomAltitude + 15));
+
+                    setIsInClass(isInside && isAltitudeValid);
                 },
                 (err) => {
                     console.warn("Location check failed", err);
@@ -154,11 +158,18 @@ const StudentDashboard = () => {
 
     // Auto-Attendance Service
     useEffect(() => {
+        console.log('🤖 Auto-Attendance Service Effect Triggered', {
+            hasUser: !!user,
+            countClasses: todayClasses.length,
+            countLocations: Object.keys(locationMap).length
+        });
+        
         if (!user || !todayClasses.length || !Object.keys(locationMap).length) {
             return;
         }
 
         // Start automatic attendance monitoring
+        console.log('🤖 Starting auto-service...');
         autoAttendanceService.start(
             user,
             todayClasses,
@@ -183,9 +194,7 @@ const StudentDashboard = () => {
     }, [user, todayClasses, locationMap]);
 
     const checkReminders = (now) => {
-        if (!todayClasses.length) return;
-
-        // 1. Check for Auto-Attendance (Current Class)
+        // 1. Check for Active Class for Alert Monitoring (Optional but good to keep logic separate)
         const currentClass = todayClasses.find(c => {
             const [startH, startM] = c.start_time.split(':');
             const [endH, endM] = c.end_time.split(':');
@@ -193,12 +202,6 @@ const StudentDashboard = () => {
             const end = new Date(); end.setHours(endH, endM, 0);
             return now >= start && now <= end;
         });
-
-        if (currentClass) {
-            // Attempt auto-mark periodically
-            // We pass isManual=false. Logic inside decides if it should actually send request (based on time/status)
-            verifyAndMark(currentClass, false);
-        }
 
         // 2. Check for Reminders (Upcoming Class)
         todayClasses.forEach(cls => {
@@ -291,6 +294,26 @@ const StudentDashboard = () => {
         }
     };
 
+    // Real-time Attendance Subscription for current student
+    useEffect(() => {
+        if (!user) return;
+
+        const subscription = supabase
+            .channel(`student_dashboard_attendance_${user.id}`)
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'attendance', filter: `student_id=eq.${user.id}` }, 
+                () => {
+                    console.log('Attendance status changed, refreshing dashboard...');
+                    fetchTodayAttendance(user.id);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, [user]);
+
     const fetchLocations = async () => {
         try {
             const { data, error } = await supabase
@@ -301,7 +324,7 @@ const StudentDashboard = () => {
 
             const map = {};
             (data || []).forEach(loc => {
-                map[loc.name] = loc;
+                map[loc.name.toLowerCase()] = loc;
             });
             setLocationMap(map);
         } catch (error) {
@@ -364,7 +387,7 @@ const StudentDashboard = () => {
 
         setMarkingAttendance(true);
 
-        const roomName = classItem.details;
+        const roomName = (classItem.details || "").toLowerCase();
         const locationConfig = locationMap[roomName];
 
         if (!locationConfig) {

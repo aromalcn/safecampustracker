@@ -10,7 +10,7 @@ class AutoAttendanceService {
         this.checkInterval = null;
         this.isRunning = false;
         this.lastCheckTime = null;
-        this.CHECK_FREQUENCY_MS = 2 * 60 * 1000; // Check every 2 minutes
+        this.CHECK_FREQUENCY_MS = 30 * 1000; // Check every 30 seconds for better real-time feel
     }
 
     /**
@@ -22,17 +22,17 @@ class AutoAttendanceService {
      */
     start(user, todayClasses, locationMap, onAttendanceMarked) {
         if (this.isRunning) {
-            console.log('Auto-attendance already running');
+            console.log('🤖 Auto-attendance already running');
             return;
         }
 
-        console.log('🤖 Starting automatic attendance monitoring...');
+        console.log('🤖 Starting automatic attendance monitoring (30s interval)...');
         this.isRunning = true;
 
-        // Initial check
+        // Initial check immediately on start
         this.checkAndMarkAttendance(user, todayClasses, locationMap, onAttendanceMarked);
 
-        // Set up periodic checks
+        // Periodic checks
         this.checkInterval = setInterval(() => {
             this.checkAndMarkAttendance(user, todayClasses, locationMap, onAttendanceMarked);
         }, this.CHECK_FREQUENCY_MS);
@@ -56,6 +56,7 @@ class AutoAttendanceService {
     async checkAndMarkAttendance(user, todayClasses, locationMap, onAttendanceMarked) {
         if (!user || !todayClasses || !locationMap) return;
 
+        console.log('🤖 Checking for current class and location...');
         const now = new Date();
         
         // Find current class
@@ -70,7 +71,7 @@ class AutoAttendanceService {
         });
 
         if (!currentClass) {
-            // No class in session
+            console.log('🤖 No class in session right now.');
             return;
         }
 
@@ -85,28 +86,30 @@ class AutoAttendanceService {
             .maybeSingle();
 
         if (existingRecord) {
-            // Already marked
+            console.log('🤖 Attendance already marked for this class today.');
             return;
         }
 
         // Get location configuration
-        const roomName = currentClass.details;
+        const rawRoomName = currentClass.details || "";
+        const roomName = rawRoomName.toLowerCase(); 
         const locationConfig = locationMap[roomName];
 
         if (!locationConfig) {
-            console.warn(`No location config found for ${roomName}`);
+            console.warn(`🤖 No location config found for room: "${currentClass.details}" (normalized to "${roomName}")`);
             return;
         }
 
         // Check geolocation
         if (!navigator.geolocation) {
-            console.warn('Geolocation not supported');
+            console.warn('🤖 Geolocation not supported');
             return;
         }
 
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
                 const { latitude, longitude, altitude } = pos.coords;
+                console.log('📍 Current location:', { latitude, longitude, altitude });
 
                 // Check if inside classroom bounds
                 const isInside = this.checkInsideBounds(
@@ -119,7 +122,7 @@ class AutoAttendanceService {
                 );
 
                 if (!isInside) {
-                    console.log(`📍 Student outside classroom: ${currentClass.class_name}`);
+                    console.log(`📍 Student outside classroom bounds for: ${currentClass.class_name} (${currentClass.details})`);
                     return;
                 }
 
@@ -128,7 +131,7 @@ class AutoAttendanceService {
                 if (altitude !== null) {
                     const isAltitudeValid = (altitude >= roomAltitude - 15) && (altitude <= roomAltitude + 15);
                     if (!isAltitudeValid) {
-                        console.log(`📏 Altitude mismatch: ${altitude.toFixed(1)}m vs ${roomAltitude}m`);
+                        console.log(`📏 Altitude mismatch: ${altitude.toFixed(1)}m vs ${roomAltitude}m. Skipping attendance.`);
                         return;
                     }
                 }
@@ -141,6 +144,8 @@ class AutoAttendanceService {
                 const diffMinutes = Math.floor(diffMs / 60000);
                 
                 const status = diffMinutes > 10 ? 'late' : 'present';
+
+                console.log(`🤖 Attempting auto-mark as ${status} for ${currentClass.class_name}...`);
 
                 // Mark attendance
                 try {
@@ -158,12 +163,14 @@ class AutoAttendanceService {
                     if (error) {
                         // Check if it's a duplicate error (23505 = unique violation)
                         if (error.code !== '23505') {
-                            console.error('Error marking attendance:', error);
+                            console.error('❌ Error auto-marking attendance:', error);
+                        } else {
+                            console.log('🤖 Attendance already marked by another process or previous check (duplicate entry).');
                         }
                         return;
                     }
 
-                    console.log(`✅ Auto-marked ${status} for ${currentClass.class_name}`);
+                    console.log(`✅ Auto-marked ${status} for ${currentClass.class_name} at ${new Date().toLocaleTimeString()}.`);
                     this.lastCheckTime = now;
 
                     // Notify callback
@@ -176,11 +183,11 @@ class AutoAttendanceService {
                     }
 
                 } catch (err) {
-                    console.error('Failed to mark attendance:', err);
+                    console.error('❌ Failed to mark attendance:', err);
                 }
             },
             (err) => {
-                console.warn('Location check failed:', err.message);
+                console.warn('❌ Location check failed:', err.message);
             },
             {
                 enableHighAccuracy: true,
@@ -194,9 +201,12 @@ class AutoAttendanceService {
      * Check if coordinates are inside classroom bounds
      */
     checkInsideBounds(userLat, userLng, roomLat, roomLng, width, height) {
-        if (!width || !height || !roomLat || !roomLng) return false;
+        if (!width || !height || !roomLat || !roomLng) {
+            console.log('🤖 Bound check error: Missing parameters', { width, height, roomLat, roomLng });
+            return false;
+        }
 
-        const BUFFER = 5; // 5 meter buffer for GPS drift
+        const BUFFER = 15; // Increased to 15m buffer (more relaxed than manual 10m)
         const halfH = (height / 2) + BUFFER;
         const halfW = (width / 2) + BUFFER;
 
@@ -209,12 +219,20 @@ class AutoAttendanceService {
         const minLng = roomLng - dLng;
         const maxLng = roomLng + dLng;
 
-        return (
+        const isInside = (
             userLat >= minLat &&
             userLat <= maxLat &&
             userLng >= minLng &&
             userLng <= maxLng
         );
+
+        if (!isInside) {
+             console.log('🤖 Outside Bounds:', {
+                 user: { lat: userLat, lng: userLng },
+                 bounds: { minLat, maxLat, minLng, maxLng }
+             });
+        }
+        return isInside;
     }
 
     /**

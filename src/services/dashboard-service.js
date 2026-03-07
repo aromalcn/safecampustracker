@@ -10,7 +10,7 @@ export const getTeacherStats = async () => {
             .from('attendance')
             .select('*', { count: 'exact', head: true })
             .eq('date', today)
-            .eq('status', 'present');
+            .in('status', ['present', 'late', 'Present', 'Late']);
         
         if (presentError) throw presentError;
 
@@ -30,11 +30,6 @@ export const getTeacherStats = async () => {
 
         if (alertsError) throw alertsError;
 
-        return {
-            totalPresent: presentCount || 0,
-            totalAbsent: absentCount || 0,
-            alertsReceived: alertsCount || 0
-        };
         return {
             totalPresent: presentCount || 0,
             totalAbsent: absentCount || 0,
@@ -89,7 +84,7 @@ export const getAdminStats = async () => {
             .from('attendance')
             .select('*', { count: 'exact', head: true })
             .eq('date', today)
-            .eq('status', 'present');
+            .in('status', ['present', 'late', 'Present', 'Late']);
 
         const { count: absentCount } = await supabase
             .from('attendance')
@@ -127,6 +122,65 @@ export const markAttendance = async (attendanceData) => {
         .insert([attendanceData]);
     if (error) throw error;
     return data;
+};
+
+/**
+ * Automatically identifies unmarked attendance for past classes 
+ * and records them as 'absent' by calling the back-end RPC.
+ */
+export const processAutoAbsentees = async () => {
+    try {
+        // We'll check the last 5 days
+        for (let i = 0; i <= 5; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            await cleanupUnmarkedForDate(dateStr);
+        }
+    } catch (error) {
+        console.warn("🤖 Auto-absent process interrupted or failed:", error);
+    }
+};
+
+/**
+ * Cleanup unmarked students for a specific date
+ */
+export const cleanupUnmarkedForDate = async (targetDateStr) => {
+    try {
+        const now = new Date();
+        const isToday = targetDateStr === now.toISOString().split('T')[0];
+        const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false });
+        
+        // Parse date to get day of week correctly
+        const [y, m, d] = targetDateStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+
+        // 1. Fetch relevant schedules for this day
+        let query = supabase.from('timetables').select('id, class_name').eq('day_of_week', dayOfWeek);
+        
+        // If checking today, only look at classes that have ALREADY ended
+        if (isToday) {
+            query = query.lt('end_time', currentTimeStr);
+        }
+
+        const { data: schedules, error: tError } = await query;
+        if (tError || !schedules || schedules.length === 0) return;
+
+        // 2. Run the database function for each class
+        for (const schedule of schedules) {
+            const { data: markedCount, error: rpcError } = await supabase.rpc('mark_absent_students', {
+                p_class_id: schedule.id,
+                p_date: targetDateStr
+            });
+
+            if (markedCount > 0) {
+                console.log(`🤖 Auto-absent: Logged ${markedCount} for ${schedule.class_name} (${targetDateStr})`);
+            }
+        }
+    } catch (err) {
+        console.error("❌ Cleanup failed for date", targetDateStr, err);
+    }
 };
 
 export const sendSOS = async (studentData) => {
