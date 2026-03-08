@@ -99,12 +99,14 @@ const StudentDashboard = () => {
         const subscription = supabase
             .channel('public:safety_alerts')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_alerts' }, payload => {
-                // Should re-fetch or handle payload
                 // If INFO is new active alert
                 if (payload.new && payload.new.is_active) {
                     setActiveAlert(payload.new);
-                } else if (payload.new && !payload.new.is_active && activeAlert?.id === payload.new.id) {
-                    setActiveAlert(null); // Dismiss if deactivated
+                } else if (payload.new && !payload.new.is_active) {
+                    // Functional update to check against current state without making it a dependency
+                    setActiveAlert(current => 
+                        (current && current.id === payload.new.id) ? null : current
+                    );
                 }
             })
             .subscribe();
@@ -112,7 +114,7 @@ const StudentDashboard = () => {
         return () => {
              supabase.removeChannel(subscription);
         };
-    }, [activeAlert]);
+    }, []); // Removed [activeAlert] to stop infinite loop
 
 
     useEffect(() => {
@@ -123,21 +125,20 @@ const StudentDashboard = () => {
                 return;
             }
 
-                // Fetch real profile to get the username
-                try {
-                    const { data: profile } = await supabase
-                        .from('users')
-                        .select('username')
-                        .eq('uid', currentUser.id)
-                        .single();
-                        
-                    if (profile) {
-                        currentUser.user_metadata = { ...currentUser.user_metadata, ...profile };
-                    }
-                } catch (err) {
-                    console.error("Failed to fetch user profile", err);
+            try {
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('username')
+                    .eq('uid', currentUser.id)
+                    .single();
+                    
+                if (profile) {
+                    currentUser.user_metadata = { ...currentUser.user_metadata, ...profile };
                 }
-            
+            } catch (err) {
+                console.error("Failed to fetch user profile", err);
+            }
+        
             setUser(currentUser);
             if (currentUser) {
                 fetchStudentTimetable(currentUser);
@@ -146,15 +147,17 @@ const StudentDashboard = () => {
             fetchLocations();
         };
         init();
+    }, [navigate]);
 
+    useEffect(() => {
         const timer = setInterval(() => {
             const now = new Date();
             setCurrentTime(now);
             checkReminders(now);
-        }, 1000 * 60); // Check every minute
+        }, 1000 * 60);
 
         return () => clearInterval(timer);
-    }, [navigate, todayClasses, notifiedClasses]); // Added dependencies
+    }, [todayClasses, notifiedClasses]);
 
     // Auto-Attendance Service
     useEffect(() => {

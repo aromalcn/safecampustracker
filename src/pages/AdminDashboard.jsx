@@ -16,6 +16,7 @@ const AdminDashboard = () => {
         attendanceRate: 0
     });
     const [activities, setActivities] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const init = async () => {

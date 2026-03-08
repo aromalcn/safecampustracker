@@ -94,8 +94,10 @@ const ParentDashboard = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_alerts' }, payload => {
                 if (payload.new && payload.new.is_active) {
                     setActiveSafetyAlert(payload.new);
-                } else if (payload.new && !payload.new.is_active && activeSafetyAlert?.id === payload.new.id) {
-                    setActiveSafetyAlert(null);
+                } else if (payload.new && !payload.new.is_active) {
+                    setActiveSafetyAlert(current => 
+                        (current && current.id === payload.new.id) ? null : current
+                    );
                 }
             })
             .subscribe();
@@ -103,7 +105,7 @@ const ParentDashboard = () => {
         return () => {
             supabase.removeChannel(subscription);
         };
-    }, [activeSafetyAlert]);
+    }, []); // Removed [activeSafetyAlert] to stop infinite loop
 
     const handleLinkStudent = async () => {
         if (!linkInput.trim()) return;
