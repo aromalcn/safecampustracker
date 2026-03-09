@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase-config';
-import { Trash2, Search, User } from 'lucide-react';
+import { Trash2, Search, User, RefreshCw, CheckCircle, Copy, X, AlertTriangle } from 'lucide-react';
 
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
@@ -16,6 +16,7 @@ const AdminUsers = () => {
     });
 
     const [filterRole, setFilterRole] = useState('all');
+    const [resetData, setResetData] = useState(null); // { username, password }
 
     useEffect(() => {
         fetchUsers();
@@ -118,6 +119,47 @@ const AdminUsers = () => {
         } catch (error) {
             console.error("Error updating user (catch block):", error);
             alert("Failed to update user: " + error.message);
+        }
+    };
+    const [resetConfirm, setResetConfirm] = useState(null); // User to confirm reset for
+
+    const handleResetPassword = (user) => {
+        setResetConfirm(user);
+    };
+
+    const handleConfirmReset = async () => {
+        if (!resetConfirm) return;
+        const targetUser = resetConfirm;
+        setResetConfirm(null);
+        
+        try {
+            const defaultPass = "Safe@" + Math.random().toString(36).slice(-6).toUpperCase();
+            
+            setLoading(true);
+            
+            // Call the RPC function to perform the actual reset in auth.users
+            const { error: rpcError } = await supabase.rpc('admin_reset_password', {
+                target_user_id: targetUser.uid,
+                new_password: defaultPass
+            });
+
+            if (rpcError) {
+                console.error("RPC Reset Error:", rpcError);
+                throw new Error(rpcError.message || "Failed to update auth credentials. Please ensure the SQL migration is applied.");
+            }
+            
+            setResetData({
+                username: targetUser.username,
+                email: targetUser.email,
+                password: defaultPass
+            });
+            
+            console.log(`Password for ${targetUser.email} reset successfully.`);
+        } catch (error) {
+            console.error("Error resetting password:", error);
+            alert("Failed to reset password: " + error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -244,6 +286,23 @@ const AdminUsers = () => {
                                                 Edit
                                             </button>
                                             <button 
+                                                onClick={() => handleResetPassword(user)}
+                                                title="Reset Password"
+                                                style={{ 
+                                                    padding: '8px', 
+                                                    background: '#ecfdf5', 
+                                                    color: '#059669', 
+                                                    border: 'none', 
+                                                    borderRadius: '8px', 
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}
+                                            >
+                                                <RefreshCw size={18} />
+                                            </button>
+                                            <button 
                                                 onClick={() => handleDeleteUser(user.uid)}
                                                 style={{ 
                                                     padding: '8px', 
@@ -333,6 +392,149 @@ const AdminUsers = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Password Reset Confirmation */}
+            {resetConfirm && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 2000, padding: '1rem', backdropFilter: 'blur(4px)'
+                }}>
+                    <div style={{ 
+                        background: 'white', 
+                        padding: '2rem', 
+                        borderRadius: '20px', 
+                        width: '100%', 
+                        maxWidth: '400px', 
+                        textAlign: 'center',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                    }}>
+                         <div style={{ 
+                            width: '60px', 
+                            height: '60px', 
+                            background: '#fff7ed', 
+                            borderRadius: '50%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#ea580c',
+                            margin: '0 auto 1rem'
+                         }}>
+                            <AlertTriangle size={32} />
+                         </div>
+                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0f172a' }}>Reset Password?</h3>
+                         <p style={{ color: '#64748b', marginBottom: '1.5rem', lineHeight: 1.5, fontSize: '0.95rem' }}>
+                            Are you sure you want to reset the password for <strong>{resetConfirm.username}</strong>? This will generate a new temporary password.
+                         </p>
+                         <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button 
+                                onClick={() => setResetConfirm(null)}
+                                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleConfirmReset}
+                                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: '#ea580c', color: 'white', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                                Reset Now
+                            </button>
+                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Reset Popup */}
+            {resetData && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 2000, padding: '1rem', backdropFilter: 'blur(8px)'
+                }}>
+                    <div style={{
+                        background: 'white', 
+                        padding: '2.5rem', 
+                        borderRadius: '24px', 
+                        width: '100%', 
+                        maxWidth: '450px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        position: 'relative',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{ 
+                            width: '80px', 
+                            height: '80px', 
+                            background: '#dcfce7', 
+                            borderRadius: '50%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#16a34a',
+                            margin: '0 auto 1.5rem'
+                        }}>
+                            <CheckCircle size={40} />
+                        </div>
+                        
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Password Reset Successful</h3>
+                        <p style={{ color: '#64748b', marginBottom: '2rem' }}>
+                            A new temporary password has been generated for <strong>{resetData.username}</strong>.
+                        </p>
+                        
+                        <div style={{ 
+                            background: '#f8fafc', 
+                            padding: '1.5rem', 
+                            borderRadius: '16px', 
+                            border: '2px dashed #e2e8f0',
+                            marginBottom: '2rem',
+                            position: 'relative'
+                        }}>
+                            <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 8px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Temporary Password</p>
+                            <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                gap: '12px'
+                            }}>
+                                <code style={{ 
+                                    fontSize: '1.5rem', 
+                                    fontWeight: 700, 
+                                    color: '#004e92', 
+                                    letterSpacing: '2px',
+                                    fontFamily: 'monospace'
+                                }}>
+                                    {resetData.password}
+                                </code>
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(resetData.password);
+                                        alert("Password copied to clipboard!");
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                                    title="Copy to clipboard"
+                                >
+                                    <Copy size={18} />
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            onClick={() => setResetData(null)}
+                            style={{ 
+                                width: '100%', 
+                                padding: '14px', 
+                                borderRadius: '12px', 
+                                border: 'none', 
+                                background: '#0f172a', 
+                                color: 'white', 
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontSize: '1rem'
+                            }}
+                        >
+                            Done
+                        </button>
                     </div>
                 </div>
             )}

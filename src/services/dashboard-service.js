@@ -65,7 +65,7 @@ export const getAdminStats = async () => {
         const { count: alertsCount, error: alertsError } = await supabase
             .from('alerts')
             .select('*', { count: 'exact', head: true })
-            .in('status', ['new', 'viewed']);
+            .in('status', ['new', 'read']);
 
         if (alertsError) throw alertsError;
 

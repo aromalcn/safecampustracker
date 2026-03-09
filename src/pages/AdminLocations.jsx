@@ -82,8 +82,12 @@ const AdminLocations = () => {
 
             for (const cls of (classes || [])) {
                 // 2. Count Total Students (Expected)
-                // Normalize department names if needed, similar to StudentDashboard
-                let targetDept = cls.department; 
+                const deptMap = {
+                    'Computer Science': 'CSE',
+                    'Electronics': 'ECE',
+                    'Mechanical': 'ME'
+                };
+                let targetDept = deptMap[cls.department] || cls.department; 
                 // (Assuming department in timetables matches users table or simple mapping)
                 
                 const { count: total, error: userError } = await supabase
@@ -99,7 +103,7 @@ const AdminLocations = () => {
                 const today = now.toISOString().split('T')[0];
                 const { data: attendance, error: attError } = await supabase
                     .from('attendance')
-                    .select('student_id, status, users(username, id_number)') // Join to get student names
+                    .select('student_id, status, users!student_id(username, id_number)') // Specify relationship explicitly
                     .eq('class_id', cls.id)
                     .eq('date', today);
 
@@ -117,7 +121,7 @@ const AdminLocations = () => {
                     .eq('semester', cls.semester)
                     .eq('role', 'student');
 
-                const fullStudentList = (allStudents || []).map(s => {
+                const studentStats = (allStudents || []).map(s => {
                     const attRecord = activeStudents.find(a => a.student_id === s.uid);
                     return {
                         ...s,
@@ -126,12 +130,14 @@ const AdminLocations = () => {
                     };
                 });
 
+                const enrolledPresentCount = studentStats.filter(s => s.status === 'inside').length;
+
                 liveData.push({
                     ...cls,
-                    totalStudents: total || 0,
-                    insideCount: presentCount,
-                    outsideCount: (total || 0) - presentCount,
-                    students: fullStudentList
+                    totalStudents: (allStudents || []).length,
+                    insideCount: enrolledPresentCount,
+                    outsideCount: (allStudents || []).length - enrolledPresentCount,
+                    students: studentStats
                 });
             }
 

@@ -318,12 +318,12 @@ const IncomingHistory = () => {
                                     fontSize: '0.7rem', 
                                     padding: '2px 6px', 
                                     borderRadius: '4px', 
-                                    background: alert.status === 'resolved' ? '#f1f5f9' : alert.status === 'viewed' ? '#ecfdf5' : '#eff6ff',
-                                    color: alert.status === 'resolved' ? '#64748b' : alert.status === 'viewed' ? '#059669' : '#2563eb',
+                                    background: alert.status === 'resolved' ? '#f1f5f9' : alert.status === 'read' ? '#ecfdf5' : '#eff6ff',
+                                    color: alert.status === 'resolved' ? '#64748b' : alert.status === 'read' ? '#059669' : '#2563eb',
                                     textTransform: 'uppercase',
                                     fontWeight: 700
                                 }}>
-                                    {alert.status}
+                                    {alert.status === 'read' ? 'ACKNOWLEDGED' : alert.status}
                                 </span>
                            </div>
                         </div>

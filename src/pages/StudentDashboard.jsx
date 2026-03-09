@@ -33,6 +33,7 @@ const StudentDashboard = () => {
         const checkLocationStatus = () => {
             const now = new Date();
             const currentClass = todayClasses.find(c => {
+                if (!c.start_time || !c.end_time) return false;
                 const [startH, startM] = c.start_time.split(':');
                 const [endH, endM] = c.end_time.split(':');
                 const start = new Date(); start.setHours(startH, startM, 0);
@@ -40,10 +41,15 @@ const StudentDashboard = () => {
                 return now >= start && now <= end;
             });
 
+            if (!currentClass) {
+                setIsInClass(null);
+                return;
+            }
+
             const roomName = (currentClass.details || "").toLowerCase();
             const locationConfig = locationMap[roomName];
 
-            if (!currentClass || !locationConfig || !navigator.geolocation) {
+            if (!locationConfig || !navigator.geolocation) {
                 setIsInClass(null);
                 return;
             }
@@ -206,8 +212,9 @@ const StudentDashboard = () => {
             return now >= start && now <= end;
         });
 
-        // 2. Check for Reminders (Upcoming Class)
         todayClasses.forEach(cls => {
+            if (!cls.start_time) return;
+            
             // cls.start_time format "HH:MM:SS" or "HH:MM"
             const [hours, minutes] = cls.start_time.split(':');
             const classTime = new Date(now);
@@ -646,6 +653,7 @@ const StudentDashboard = () => {
                         {(() => {
                             const now = new Date();
                             const currentClass = todayClasses.find(c => {
+                                if (!c.start_time || !c.end_time) return false;
                                 const [startH, startM] = c.start_time.split(':');
                                 const [endH, endM] = c.end_time.split(':');
                                 const start = new Date(); start.setHours(startH, startM, 0);

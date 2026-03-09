@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, ShieldCheck, X, Eye, EyeOff } from 'lucide-react';
 import { loginUser } from '../services/auth-service';
+import { supabase } from '../supabase-config';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [showForgotPwd, setShowForgotPwd] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
@@ -18,6 +18,9 @@ const Login = () => {
         setError('');
 
         try {
+            // Optional: Clear existing session logic if any corrupted state exists
+            await supabase.auth.signOut();
+            
             const userCredential = await loginUser(email, password);
             const { getUserRole } = await import('../services/auth-service');
             const role = await getUserRole(userCredential.user.uid);
@@ -38,7 +41,7 @@ const Login = () => {
 
         } catch (err) {
             console.error("Login Error:", err);
-            setError('Invalid credentials.');
+            setError(err.message || 'Invalid credentials.');
         } finally {
             setLoading(false);
         }
@@ -144,7 +147,6 @@ const Login = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#333' }}>Password</label>
-                                <button type="button" onClick={() => setShowForgotPwd(true)} style={{ background: 'none', border: 'none', fontSize: '0.85rem', color: '#004e92', fontWeight: 600, cursor: 'pointer' }}>Forgot password?</button>
                             </div>
                             <div style={{ position: 'relative' }}>
                                 <Lock size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
@@ -202,48 +204,7 @@ const Login = () => {
                     </form>
                 </div>
 
-                {/* Forgot Password Modal Overlay */}
-                {showForgotPwd && (
-                    <div style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        backdropFilter: 'blur(4px)'
-                    }}>
-                        <div style={{
-                            background: 'white', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '400px',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                            position: 'relative'
-                        }}>
-                            <button
-                                onClick={() => setShowForgotPwd(false)}
-                                style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'none', border: 'none', cursor: 'pointer' }}
-                            >
-                                <X size={20} color="#666" />
-                            </button>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Reset Password</h3>
-                            <p style={{ color: '#666', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-                                Enter your email address and we'll send you a link to reset your password.
-                            </p>
-                            <input
-                                type="email"
-                                placeholder="Enter your email"
-                                style={{
-                                    width: '100%', padding: '12px', borderRadius: '10px',
-                                    border: '1px solid #e0e0e0', marginBottom: '1rem', fontSize: '1rem'
-                                }}
-                            />
-                            <button
-                                onClick={() => { alert('Reset link sent!'); setShowForgotPwd(false); }}
-                                style={{
-                                    width: '100%', padding: '12px', borderRadius: '10px',
-                                    background: '#004e92', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer'
-                                }}
-                            >
-                                Send Reset Link
-                            </button>
-                        </div>
-                    </div>
-                )}
+
             </div>
         </div>
     );

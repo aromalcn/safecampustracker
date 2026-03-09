@@ -14,6 +14,7 @@ const ParentDashboard = () => {
     const [stats, setStats] = useState({ present: false, location: 'Unknown', alerts: 0 });
     const [loading, setLoading] = useState(true);
     const [activeSafetyAlert, setActiveSafetyAlert] = useState(null); // Safety alerts
+    const [activeStudentAlerts, setActiveStudentAlerts] = useState([]); // SOS alerts specifically for selected student
 
     // Linking Logic State
     const [linkInput, setLinkInput] = useState('');
@@ -151,11 +152,14 @@ const ParentDashboard = () => {
             .eq('is_active', true);
         
         // 3. Fetch active SOS alerts specifically for this student
-        const { count: emergencyCount } = await supabase
+        const { data: activeEmergencies, count: emergencyCount } = await supabase
             .from('alerts')
-            .select('*', { count: 'exact', head: true })
+            .select('*', { count: 'exact' })
             .eq('sender_id', selectedStudent.uid)
-            .in('status', ['new', 'viewed']);
+            .in('status', ['new', 'read'])
+            .order('created_at', { ascending: false });
+        
+        setActiveStudentAlerts(activeEmergencies || []);
         
         const status = attendance?.status;
         let location = 'No Status';
@@ -189,8 +193,21 @@ const ParentDashboard = () => {
             )
             .subscribe();
 
+        // Alerts Subscription for this student
+        const alertSubscription = supabase
+            .channel(`parent_alerts_${selectedStudent.uid}`)
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'alerts', filter: `sender_id=eq.${selectedStudent.uid}` }, 
+                () => {
+                    console.log('Student alert state changed, refreshing parent dashboard...');
+                    fetchStudentData();
+                }
+            )
+            .subscribe();
+
         return () => {
             supabase.removeChannel(subscription);
+            supabase.removeChannel(alertSubscription);
         };
     }, [selectedStudent]);
 
@@ -338,6 +355,62 @@ const ParentDashboard = () => {
                                         ))}
                                     </div>
                                 )}
+
+                                 {activeStudentAlerts.length > 0 && (
+                                    <div style={{
+                                        background: '#fef2f2',
+                                        border: '2px solid #dc2626',
+                                        borderRadius: '16px',
+                                        padding: '1.25rem',
+                                        boxShadow: '0 4px 15px rgba(220, 38, 38, 0.2)',
+                                        animation: 'pulseSOS 2s infinite'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', marginBottom: '0.75rem' }}>
+                                            <AlertTriangle size={24} className="animate-pulse" />
+                                            <h4 style={{ margin: 0, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>EMERGENCY SOS</h4>
+                                        </div>
+                                        <p style={{ margin: '0 0 1rem', fontSize: '0.95rem', color: '#991b1b', fontWeight: 600 }}>
+                                            {activeStudentAlerts[0].title}
+                                        </p>
+                                        <p style={{ margin: '0 0 1rem', fontSize: '0.85rem', color: '#450a0a', opacity: 0.8, lineHeight: 1.4 }}>
+                                            {activeStudentAlerts[0].message}
+                                        </p>
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button 
+                                                onClick={() => navigate('/parent/alerts')}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '10px',
+                                                    background: '#dc2626',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.85rem'
+                                                }}
+                                            >
+                                                View Details
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <style>{`
+                                    @keyframes pulseSOS {
+                                        0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+                                        70% { box-shadow: 0 0 0 15px rgba(220, 38, 38, 0); }
+                                        100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+                                    }
+                                    .animate-pulse {
+                                        animation: pulseEffect 1.5s infinite;
+                                    }
+                                    @keyframes pulseEffect {
+                                        0% { opacity: 1; transform: scale(1); }
+                                        50% { opacity: 0.5; transform: scale(1.1); }
+                                        100% { opacity: 1; transform: scale(1); }
+                                    }
+                                `}</style>
 
                                 <div className="card" style={{ padding: '1.5rem' }}>
                                     <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #e5e7eb' }}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { supabase } from '../supabase-config';
 import { getTeacherAlerts } from '../services/dashboard-service';
 
 const AlertBanner = ({ linkedStudentIds = null }) => {
@@ -15,7 +16,7 @@ const AlertBanner = ({ linkedStudentIds = null }) => {
                 // 2. Must be critical/high severity
                 // 3. If linkedStudentIds is provided, sender_id MUST be in that list
                 
-                let relevantAlerts = alerts.filter(a => a.status === 'new' && (a.severity === 'critical' || a.severity === 'high'));
+                let relevantAlerts = alerts.filter(a => (a.status === 'new' || a.status === 'read') && (a.severity === 'critical' || a.severity === 'high'));
 
                 if (linkedStudentIds) {
                     relevantAlerts = relevantAlerts.filter(a => linkedStudentIds.includes(a.sender_id));
@@ -34,9 +35,46 @@ const AlertBanner = ({ linkedStudentIds = null }) => {
 
     useEffect(() => {
         checkAlerts();
-        const interval = setInterval(checkAlerts, 10000); // Check every 10s
-        return () => clearInterval(interval);
-    }, []);
+
+        // Real-time subscription for live SOS alerts
+        const subscription = supabase
+            .channel('live_sos_portal')
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'alerts' 
+            }, async (payload) => {
+                const newAlert = payload.new;
+                // Only act if new and critical/high
+                if (newAlert.status === 'new' && (newAlert.severity === 'critical' || newAlert.severity === 'high')) {
+                    // If filtering by students, check if this sender is one of them
+                    if (!linkedStudentIds || linkedStudentIds.includes(newAlert.sender_id)) {
+                        setActiveAlert(newAlert);
+                        setDismissedId(null); // Reset dismissed state for new emergency
+                    }
+                }
+            })
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'alerts' 
+            }, (payload) => {
+                const updated = payload.new;
+                // If the currently active alert gets resolved, remove it
+                if (activeAlert && updated.id === activeAlert.id) {
+                    if (updated.status === 'resolved') {
+                        setActiveAlert(null);
+                    } else {
+                        setActiveAlert(updated);
+                    }
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, [linkedStudentIds, activeAlert?.id]);
 
     if (!activeAlert || activeAlert.id === dismissedId) return null;
 

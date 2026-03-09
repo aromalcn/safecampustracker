@@ -169,10 +169,10 @@ const AlertCard = ({ alert }) => {
                 {alert.type === 'emergency' && (
                     <span style={{ 
                         padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
-                        background: alert.status === 'new' ? '#fee2e2' : alert.status === 'viewed' ? '#dbeafe' : '#f1f5f9',
-                        color: alert.status === 'new' ? '#dc2626' : alert.status === 'viewed' ? '#2563eb' : '#64748b'
+                        background: alert.status === 'new' ? '#fee2e2' : alert.status === 'read' ? '#dbeafe' : '#f1f5f9',
+                        color: alert.status === 'new' ? '#dc2626' : alert.status === 'read' ? '#2563eb' : '#64748b'
                     }}>
-                        {alert.status || 'NEW'}
+                        {alert.status === 'read' ? 'ACKNOWLEDGED' : (alert.status || 'NEW')}
                     </span>
                 )}
 

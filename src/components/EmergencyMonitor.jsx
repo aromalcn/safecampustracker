@@ -29,7 +29,7 @@ const EmergencyMonitor = () => {
             const { data, error } = await supabase
                 .from('alerts')
                 .select('*')
-                .in('status', ['new', 'viewed']) // Fetch both new and viewed(but not resolved)
+                .in('status', ['new', 'read']) // Fetch both new and read(but not resolved)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -166,7 +166,7 @@ const EmergencyMonitor = () => {
                                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
                                         {new Date(alert.created_at).toLocaleTimeString()}
                                     </span>
-                                    {alert.status === 'viewed' && (
+                                    {alert.status === 'read' && (
                                         <span style={{ fontSize: '0.75rem', color: '#059669', background: '#ecfdf5', padding: '2px 6px', borderRadius: '4px' }}>
                                             Acknowledged
                                         </span>
@@ -208,7 +208,7 @@ const EmergencyMonitor = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {alert.status === 'new' && (
                                     <button 
-                                        onClick={() => handleStatusUpdate(alert.id, 'viewed')}
+                                        onClick={() => handleStatusUpdate(alert.id, 'read')}
                                         style={{
                                             padding: '8px 16px',
                                             background: '#3b82f6',
