@@ -73,6 +73,19 @@
   display: none !important;
 }
 
+@media (max-width: 640px) {
+  .flex-col-mobile {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .full-width-mobile {
+    width: 100% !important;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
 @media (min-width: 640px) {
   .desktop-nav {
     display: flex !important;
